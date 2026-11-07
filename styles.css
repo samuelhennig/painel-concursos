@@ -1879,7 +1879,9 @@ code, .mono {
   animation: authFadeIn 0.25s ease-out;
 }
 
-.auth-overlay[hidden] {
+.auth-overlay[hidden],
+.auth-field[hidden],
+[hidden] {
   display: none !important;
 }
 

@@ -404,7 +404,6 @@ function checkAuthOnStartup() {
 function updateAuthModalState() {
   const title = document.getElementById('authTitle');
   const subtitle = document.getElementById('authSubtitle');
-  const confirmField = document.getElementById('authConfirmField');
   const btn = document.getElementById('btnAuthSubmit');
   const errorMsg = document.getElementById('authErrorMsg');
   if (errorMsg) errorMsg.setAttribute('hidden', '');
@@ -412,11 +411,6 @@ function updateAuthModalState() {
   // Modo estrito permanente: 100% blindado contra terceiros
   if (title) title.textContent = 'Painel de Estudos Protegido';
   if (subtitle) subtitle.textContent = 'Acesso restrito ao aluno. Digite sua senha pessoal para desbloquear o painel.';
-  if (confirmField) {
-    confirmField.setAttribute('hidden', '');
-    const confirmInput = document.getElementById('authConfirmInput');
-    if (confirmInput) confirmInput.value = '';
-  }
   if (btn) btn.textContent = 'Desbloquear Painel ➔';
 }
 
@@ -459,8 +453,6 @@ function unlockSession(remember) {
   if (overlay) overlay.setAttribute('hidden', '');
   const pwdInput = document.getElementById('authPasswordInput');
   if (pwdInput) pwdInput.value = '';
-  const confirmInput = document.getElementById('authConfirmInput');
-  if (confirmInput) confirmInput.value = '';
 }
 
 function lockApp() {
@@ -481,12 +473,10 @@ function lockApp() {
 
 function togglePasswordVisibility() {
   const pwdInput = document.getElementById('authPasswordInput');
-  const confirmInput = document.getElementById('authConfirmInput');
   const btn = document.getElementById('btnTogglePwd');
   if (!pwdInput) return;
   const isPass = pwdInput.type === 'password';
   pwdInput.type = isPass ? 'text' : 'password';
-  if (confirmInput) confirmInput.type = isPass ? 'text' : 'password';
   if (btn) btn.textContent = isPass ? '🙈' : '👁';
 }
 
