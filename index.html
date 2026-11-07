@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Painel Estratégico de Estudos • TJSP · DPDF · SEFAZ-DF</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Top Header -->
+    <header class="topbar">
+      <div class="topbar-brand">
+        <div class="brand-logo" aria-hidden="true">⚖️</div>
+        <div>
+          <h1 class="brand-title">Painel Estratégico de Preparação</h1>
+          <p class="brand-subtitle">TJSP Oficial · DPDF Analista Direito · SEFAZ-DF Auditor · Núcleo Distrital</p>
+        </div>
+      </div>
+
+      <!-- Integrated Study Timer & Active Block Pill -->
+      <div class="topbar-center">
+        <div class="pomodoro-widget" id="pomodoroWidget">
+          <div class="pomodoro-info">
+            <span class="pomodoro-label" id="pomodoroBlockLabel">Bloco 02 • Proc. Civil</span>
+            <span class="pomodoro-display" id="pomodoroDisplay">50:00</span>
+          </div>
+          <div class="pomodoro-actions">
+            <button type="button" class="btn-icon" id="btnTimerToggle" title="Iniciar / Pausar Bloco de 50 min">▶</button>
+            <button type="button" class="btn-icon" id="btnTimerReset" title="Reiniciar 50 min">↺</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Utility Actions -->
+      <div class="topbar-actions">
+        <div class="sync-status-badge" id="syncStatusBadge" title="Status da sincronização em tempo real (Firebase)">
+          <span class="sync-dot"></span>
+          <span class="sync-text">Conectando...</span>
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm" id="btnExportBackup" title="Exportar seu progresso em JSON">
+          ⬇ Exportar
+        </button>
+        <label class="btn btn-ghost btn-sm" for="inputImportBackup" title="Importar backup JSON salvo">
+          ⬆ Importar
+          <input type="file" id="inputImportBackup" accept=".json" hidden />
+        </label>
+        <button type="button" class="btn btn-ghost btn-sm text-danger" id="btnResetState" title="Restaurar estado inicial da planilha">
+          ⟲ Resetar
+        </button>
+        <button type="button" class="btn-icon theme-toggle" id="btnThemeToggle" title="Alternar tema claro/escuro">
+          🌙
+        </button>
+        <button type="button" class="btn btn-ghost btn-sm" id="btnLockApp" onclick="lockApp()" title="Bloquear painel com senha">
+          🔒 Bloquear
+        </button>
+      </div>
+    </header>
+
+    <!-- Primary Navigation Tabs with Easy Mouse Scroll & Chevrons -->
+    <div class="nav-container-wrapper">
+      <button type="button" class="nav-scroll-btn nav-scroll-left" id="btnNavScrollLeft" aria-label="Rolar abas para a esquerda" title="Rolar abas para a esquerda">‹</button>
+      <nav class="main-nav" id="mainNav" aria-label="Navegação Principal">
+        <button type="button" class="nav-tab active" data-tab="painel">
+          <span class="nav-tab-icon">📊</span>
+          <span>Painel Geral</span>
+        </button>
+        <button type="button" class="nav-tab" data-tab="diario">
+          <span class="nav-tab-icon">📅</span>
+          <span>Diário & Checklist</span>
+          <span class="nav-badge" id="navBadgeDiario">0/7</span>
+        </button>
+        <button type="button" class="nav-tab" data-tab="ciclo">
+          <span class="nav-tab-icon">🔄</span>
+          <span>Ciclo Contínuo, OAB & PDF</span>
+          <span class="nav-badge" id="navBadgeCiclo">1/23</span>
+        </button>
+        <button type="button" class="nav-tab" data-tab="lista">
+          <span class="nav-tab-icon">✅</span>
+          <span>Lista Única (5 Etapas)</span>
+          <span class="nav-badge" id="navBadgeLista">298</span>
+        </button>
+        <button type="button" class="nav-tab" data-tab="editais">
+          <span class="nav-tab-icon">📜</span>
+          <span>Editais Verticalizados</span>
+          <span class="nav-badge" id="navBadgeEditais">689</span>
+        </button>
+        <button type="button" class="nav-tab" data-tab="materias">
+          <span class="nav-tab-icon">📚</span>
+          <span>Progresso por Matéria</span>
+          <span class="nav-badge">27</span>
+        </button>
+        <button type="button" class="nav-tab" data-tab="discursivas">
+          <span class="nav-tab-icon">✍️</span>
+          <span>Discursivas, Fontes & Auditoria</span>
+        </button>
+      </nav>
+      <button type="button" class="nav-scroll-btn nav-scroll-right" id="btnNavScrollRight" aria-label="Rolar abas para a direita" title="Rolar abas para a direita">›</button>
+    </div>
+
+    <!-- Main Content Container -->
+    <main class="main-content">
+      <!-- TAB 1: PAINEL GERAL -->
+      <section class="tab-pane active" id="tab-painel">
+        <div id="painelContent"></div>
+      </section>
+
+      <!-- TAB DIARIO: DIÁRIO DE ESTUDOS & CHECKLIST -->
+      <section class="tab-pane" id="tab-diario">
+        <div id="diarioContent"></div>
+      </section>
+
+      <!-- TAB 2: CICLO CONTÍNUO, OAB & META PDF -->
+      <section class="tab-pane" id="tab-ciclo">
+        <div id="cicloContent"></div>
+      </section>
+
+      <!-- TAB 3: LISTA ÚNICA DE ESTUDOS -->
+      <section class="tab-pane" id="tab-lista">
+        <div id="listaContent"></div>
+      </section>
+
+      <!-- TAB 4: EDITAIS VERTICALIZADOS -->
+      <section class="tab-pane" id="tab-editais">
+        <div id="editaisContent"></div>
+      </section>
+
+      <!-- TAB 5: PROGRESSO POR MATÉRIA -->
+      <section class="tab-pane" id="tab-materias">
+        <div id="materiasContent"></div>
+      </section>
+
+      <!-- TAB 6: DISCURSIVAS, FONTES & AUDITORIA -->
+      <section class="tab-pane" id="tab-discursivas">
+        <div id="discursivasContent"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Topic Details & Links Modal -->
+  <div class="modal-backdrop" id="topicModal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-header">
+        <div id="modalHeaderBadges" class="badge-row"></div>
+        <button type="button" class="btn-close" id="btnCloseModal" aria-label="Fechar">✕</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Floating Hover Popover for Topic Details & Linked Requirements -->
+  <div class="topic-hover-popover" id="topicHoverPopover" hidden></div>
+
+  <!-- Auth / Lock Screen Overlay -->
+  <div class="auth-overlay" id="authOverlay" hidden>
+    <div class="auth-card">
+      <div class="auth-header">
+        <div class="auth-icon">🔐</div>
+        <h2 class="auth-title" id="authTitle">Painel de Estudos Protegido</h2>
+        <p class="auth-subtitle" id="authSubtitle">Digite sua senha para desbloquear seu progresso e sincronizar com a nuvem.</p>
+      </div>
+
+      <form class="auth-form" id="authForm" onsubmit="handleAuthSubmit(event)">
+        <div class="auth-field">
+          <label for="authPasswordInput" id="authPasswordLabel">Senha de Acesso</label>
+          <div class="auth-input-wrap">
+            <input type="password" id="authPasswordInput" class="auth-input" placeholder="Digite sua senha..." autocomplete="current-password" required />
+            <button type="button" class="btn-toggle-pwd" id="btnTogglePwd" onclick="togglePasswordVisibility()" title="Mostrar/ocultar senha">👁</button>
+          </div>
+        </div>
+
+        <div class="auth-field" id="authConfirmField" hidden>
+          <label for="authConfirmInput">Confirmar Nova Senha</label>
+          <input type="password" id="authConfirmInput" class="auth-input" placeholder="Digite novamente para confirmar..." />
+        </div>
+
+        <div class="auth-options">
+          <label class="auth-remember-label">
+            <input type="checkbox" id="authRememberCheckbox" checked />
+            <span>Lembrar o acesso neste computador</span>
+          </label>
+        </div>
+
+        <div class="auth-error-msg" id="authErrorMsg" hidden></div>
+
+        <button type="submit" class="btn btn-primary btn-block" id="btnAuthSubmit">
+          Desbloquear Painel ➔
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Firebase App & Firestore (compat) CDN for real-time cloud sync -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
