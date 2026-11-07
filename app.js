@@ -23,6 +23,7 @@ let state = {
     controleSemanal: {},
     topicoAtual: { topicoId: 'TOP-080', etapas: {} }
   },
+  authPasswordHash: '18d0ad0531b8cd6dc040dc00655927a38df980fd4428f32aae3aa90c02f52905',
   // Preferências e filtros de UI
   ui: {
     activeTab: 'painel',
@@ -365,9 +366,10 @@ function saveStateToCloud(isInitial) {
 }
 
 // ============================================================================
-// CONTROLE DE ACESSO / LOGIN POR SENHA
+// CONTROLE DE ACESSO / LOGIN POR SENHA BLINDADO
 // ============================================================================
 const AUTH_SESSION_KEY = 'concursos_auth_unlocked';
+const MASTER_PASSWORD_HASH = '18d0ad0531b8cd6dc040dc00655927a38df980fd4428f32aae3aa90c02f52905';
 
 async function hashPassword(str) {
   if (typeof crypto !== 'undefined' && crypto.subtle) {
@@ -390,7 +392,7 @@ function checkAuthOnStartup() {
   const overlay = document.getElementById('authOverlay');
   if (!overlay) return;
 
-  if (isUnlocked && state.authPasswordHash) {
+  if (isUnlocked) {
     overlay.setAttribute('hidden', '');
     return;
   }
@@ -407,56 +409,34 @@ function updateAuthModalState() {
   const errorMsg = document.getElementById('authErrorMsg');
   if (errorMsg) errorMsg.setAttribute('hidden', '');
 
-  if (!state.authPasswordHash) {
-    if (title) title.textContent = 'Definir Senha de Acesso';
-    if (subtitle) subtitle.textContent = 'Crie sua senha mestra para proteger seu painel em qualquer computador.';
-    if (confirmField) confirmField.removeAttribute('hidden');
-    if (btn) btn.textContent = 'Criar Senha e Desbloquear ➔';
-  } else {
-    if (title) title.textContent = 'Painel de Estudos Protegido';
-    if (subtitle) subtitle.textContent = 'Digite sua senha para desbloquear seu progresso e sincronizar com a nuvem.';
-    if (confirmField) confirmField.setAttribute('hidden', '');
-    if (btn) btn.textContent = 'Desbloquear Painel ➔';
+  // Modo estrito permanente: 100% blindado contra terceiros
+  if (title) title.textContent = 'Painel de Estudos Protegido';
+  if (subtitle) subtitle.textContent = 'Acesso restrito ao aluno. Digite sua senha pessoal para desbloquear o painel.';
+  if (confirmField) {
+    confirmField.setAttribute('hidden', '');
+    const confirmInput = document.getElementById('authConfirmInput');
+    if (confirmInput) confirmInput.value = '';
   }
+  if (btn) btn.textContent = 'Desbloquear Painel ➔';
 }
 
 async function handleAuthSubmit(e) {
   if (e) e.preventDefault();
   const pwdInput = document.getElementById('authPasswordInput');
-  const confirmInput = document.getElementById('authConfirmInput');
   const rememberCheckbox = document.getElementById('authRememberCheckbox');
 
   const pwd = (pwdInput?.value || '').trim();
-  const confirm = (confirmInput?.value || '').trim();
-
   if (!pwd) return;
 
-  if (!state.authPasswordHash) {
-    if (pwd.length < 4) {
-      showAuthError('A senha deve ter pelo menos 4 caracteres.');
-      return;
-    }
-    if (pwd !== confirm) {
-      showAuthError('As senhas não coincidem. Digite a mesma senha nos dois campos.');
-      return;
-    }
-
-    const hashed = await hashPassword(pwd);
-    state.authPasswordHash = hashed;
-    saveState();
+  const hashed = await hashPassword(pwd);
+  if (hashed === MASTER_PASSWORD_HASH) {
     unlockSession(rememberCheckbox?.checked);
-    showToast('🔑 Senha de acesso criada com sucesso!');
+    showToast('🔓 Acesso liberado!');
   } else {
-    const hashed = await hashPassword(pwd);
-    if (hashed === state.authPasswordHash) {
-      unlockSession(rememberCheckbox?.checked);
-      showToast('🔓 Acesso liberado!');
-    } else {
-      showAuthError('Senha incorreta. Tente novamente.');
-      if (pwdInput) {
-        pwdInput.value = '';
-        pwdInput.focus();
-      }
+    showAuthError('Senha incorreta. Acesso não autorizado.');
+    if (pwdInput) {
+      pwdInput.value = '';
+      pwdInput.focus();
     }
   }
 }
