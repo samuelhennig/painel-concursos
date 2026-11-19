@@ -123,13 +123,10 @@ function initStateFromDefault() {
 
   state.diarioUser = {
     controleSemanal: {
-      'Segunda': { controle: 'Pendente', registro: '' },
-      'Terca': { controle: 'Pendente', registro: '' },
-      'Quarta': { controle: 'Pendente', registro: '' },
-      'Quinta': { controle: 'Pendente', registro: '' },
-      'Sexta': { controle: 'Pendente', registro: '' },
-      'Sabado': { controle: 'Pendente', registro: '' },
-      'Domingo': { controle: 'Pendente', registro: '' }
+      'Dia útil — Bloco A (abertura)': { controle: 'Pendente', registro: '' },
+      'Dia útil — Bloco B (miolo)': { controle: 'Pendente', registro: '' },
+      'Dia útil — Bloco C (fechamento)': { controle: 'Pendente', registro: '' },
+      'Sábado ou Domingo (quando conseguir)': { controle: 'Pendente', registro: '' }
     },
     topicoAtual: {
       topicoId: 'TOP-080',
@@ -811,12 +808,16 @@ function recalculateAll() {
   // Diário de Estudos & Checklist
   const diarioRaw = INITIAL_DATA.diario || {};
   const semanal = (diarioRaw.controleSemanal || []).map(d => {
-    const u = (state.diarioUser && state.diarioUser.controleSemanal && state.diarioUser.controleSemanal[d.dia]) || {};
+    const key = d.momento || d.dia;
+    const u = (state.diarioUser && state.diarioUser.controleSemanal && state.diarioUser.controleSemanal[key]) || {};
     return {
       ...d,
+      momento: key,
+      tempo: d.tempo || '',
+      oQueFazer: d.oQueFazer || d.atividade || '',
+      regraSimples: d.regraSimples || d.observacoes || '',
       controle: u.controle || d.controle || 'Pendente',
-      registro: u.registro !== undefined ? u.registro : (d.registro || ''),
-      observacoes: d.observacoes || ''
+      registro: u.registro !== undefined ? u.registro : (d.registro || '')
     };
   });
   const diasFeitos = semanal.filter(d => d.controle === 'Feito').length;
@@ -1039,7 +1040,8 @@ function updateNavBadges() {
   const activeBlock = computed.cicloFila.find(b => b.statusRetomada === '▶ Retomar daqui');
   const elDiario = document.getElementById('navBadgeDiario');
   if (elDiario && computed.diario) {
-    elDiario.textContent = `${computed.diario.diasConcluidos}/7`;
+    const totalSemanal = computed.diario.controleSemanal.length || 4;
+    elDiario.textContent = `${computed.diario.diasConcluidos}/${totalSemanal}`;
   }
 
   const elCiclo = document.getElementById('navBadgeCiclo');
@@ -1527,10 +1529,10 @@ function renderDiario() {
         <div class="card-header flex-between">
           <div>
             <h4 class="card-title">1. Controle Semanal</h4>
-            <span class="text-xs text-muted">Segunda a Domingo</span>
+            <span class="text-xs text-muted">Rotina por Blocos (Dia útil + Fim de semana)</span>
           </div>
-          <div class="status-pill ${d.diasConcluidos === 7 ? 'status-consolidado' : 'status-em-curso'}">
-            ${d.diasConcluidos} de 7 dias (${fmtPct(d.progressoSemanal, 0)})
+          <div class="status-pill ${d.diasConcluidos === d.controleSemanal.length ? 'status-consolidado' : 'status-em-curso'}">
+            ${d.diasConcluidos} de ${d.controleSemanal.length} blocos (${fmtPct(d.progressoSemanal, 0)})
           </div>
         </div>
         <div class="card-body">
@@ -1541,30 +1543,32 @@ function renderDiario() {
             <table class="data-table">
               <thead>
                 <tr>
-                  <th style="width:90px;">Dia</th>
-                  <th>Atividade Planejada</th>
-                  <th style="width:115px;" class="text-center">Controle</th>
-                  <th>Registro / Onde parou</th>
-                  <th>Observações</th>
+                  <th style="min-width:155px;">Momento</th>
+                  <th style="min-width:120px;">Tempo</th>
+                  <th style="min-width:150px;">O que fazer</th>
+                  <th style="min-width:220px;">Regra simples</th>
+                  <th style="width:110px;" class="text-center">Controle</th>
+                  <th style="min-width:140px;">Registro</th>
                 </tr>
               </thead>
               <tbody>
                 ${d.controleSemanal.map(item => `
                   <tr class="${item.controle === 'Feito' ? 'row-done' : ''}">
-                    <td><strong>${escapeHtml(item.dia)}</strong></td>
-                    <td>${escapeHtml(item.atividade)}</td>
+                    <td><strong>${escapeHtml(item.momento)}</strong></td>
+                    <td class="text-xs font-semibold">${escapeHtml(item.tempo)}</td>
+                    <td>${escapeHtml(item.oQueFazer)}</td>
+                    <td class="text-xs text-muted">${escapeHtml(item.regraSimples)}</td>
                     <td class="text-center">
                       <button type="button" class="btn btn-xs ${item.controle === 'Feito' ? 'btn-success' : 'btn-outline-secondary'}"
-                        onclick="toggleDiarioDia('${escapeHtml(item.dia)}')">
+                        onclick="toggleDiarioDia('${escapeHtml(item.momento)}')">
                         ${item.controle === 'Feito' ? '✓ Feito' : '⏳ Pendente'}
                       </button>
                     </td>
                     <td>
                       <input type="text" class="table-inline-input" placeholder="Ex: Bloco 02, art. 149..."
                         value="${escapeHtml(item.registro)}"
-                        onchange="updateDiarioRegistro('${escapeHtml(item.dia)}', this.value)" />
+                        onchange="updateDiarioRegistro('${escapeHtml(item.momento)}', this.value)" />
                     </td>
-                    <td class="text-xs text-muted">${escapeHtml(item.observacoes || '—')}</td>
                   </tr>
                 `).join('')}
               </tbody>
@@ -1676,7 +1680,8 @@ function reiniciarSemanaDiario() {
   if (!confirm('Deseja reiniciar os controles da semana para Pendente?')) return;
   if (!state.diarioUser) state.diarioUser = {};
   if (!state.diarioUser.controleSemanal) state.diarioUser.controleSemanal = {};
-  ['Segunda', 'Terca', 'Quarta', 'Quinta', 'Sexta', 'Sabado', 'Domingo'].forEach(d => {
+  const keys = (computed.diario && computed.diario.controleSemanal ? computed.diario.controleSemanal : []).map(x => x.momento || x.dia);
+  keys.forEach(d => {
     state.diarioUser.controleSemanal[d] = {
       ...(state.diarioUser.controleSemanal[d] || {}),
       controle: 'Pendente'
