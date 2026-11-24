@@ -1032,9 +1032,10 @@ function recalculateAll() {
 
 function updateNavBadges() {
   const elDiario = document.getElementById('navBadgeDiario');
-  if (elDiario && computed.diario) {
-    const totalSemanal = computed.diario.controleSemanal.length || 4;
-    elDiario.textContent = `${computed.diario.diasConcluidos}/${totalSemanal}`;
+  if (elDiario && computed.diario && computed.diario.divisaoDiaria) {
+    const div = computed.diario.divisaoDiaria;
+    const done = (div.bussolaNote.controle === 'Feito' ? 1 : 0) + (div.oabCiclo.controle === 'Feito' ? 1 : 0);
+    elDiario.textContent = `${done}/2`;
   }
 
   const elCiclo = document.getElementById('navBadgeCiclo');
@@ -1504,187 +1505,63 @@ function renderDiario() {
     <div class="section-header">
       <div>
         <h3 class="section-title">Diário de Estudos • Bússola Note = 30 min OAB Ciclo</h3>
-        <p class="section-subtitle">Controle semanal por blocos e divisão diária direta entre Bússola Note e 30 min de questões no Ciclo OAB.</p>
       </div>
       <div class="header-action-group">
-        <button type="button" class="btn btn-ghost btn-sm" onclick="reiniciarSemanaDiario()">
-          ⟲ Reiniciar Semana
+        <button type="button" class="btn btn-ghost btn-sm" onclick="reiniciarDivisaoDiaria()">
+          ⟲ Novo Dia
         </button>
       </div>
     </div>
 
-    <!-- Banner de Diretriz / Observação Geral -->
-    <div class="alert-box alert-info mb-4">
-      <div class="alert-icon">💡</div>
-      <div class="alert-body">
-        <strong>Diretriz do Diário:</strong> ${escapeHtml(d.observacaoGeral)}
-        <div class="text-xs mt-1 text-muted">Marque <strong>Feito</strong> ao concluir cada atividade diária. No início da semana, clique em 'Reiniciar Semana' para voltar os controles a Pendente.</div>
-      </div>
-    </div>
-
-    <div class="dashboard-grid-2col mb-4">
-      <!-- 1. CONTROLE SEMANAL -->
-      <div class="card">
-        <div class="card-header flex-between">
-          <div>
-            <h4 class="card-title">1. Controle Semanal</h4>
-            <span class="text-xs text-muted">Rotina por Blocos (Dia útil + Fim de semana)</span>
-          </div>
-          <div class="status-pill ${d.diasConcluidos === d.controleSemanal.length ? 'status-consolidado' : 'status-em-curso'}">
-            ${d.diasConcluidos} de ${d.controleSemanal.length} blocos (${fmtPct(d.progressoSemanal, 0)})
-          </div>
-        </div>
-        <div class="card-body">
-          <div class="progress-bar-container mb-3" style="height:8px;">
-            <div class="progress-bar-fill" style="width:${Math.round(d.progressoSemanal * 100)}%;"></div>
-          </div>
-          <div class="table-responsive">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th style="min-width:155px;">Momento</th>
-                  <th style="min-width:120px;">Tempo</th>
-                  <th style="min-width:150px;">O que fazer</th>
-                  <th style="min-width:220px;">Regra simples</th>
-                  <th style="width:110px;" class="text-center">Controle</th>
-                  <th style="min-width:140px;">Registro</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${d.controleSemanal.map(item => `
-                  <tr class="${item.controle === 'Feito' ? 'row-done' : ''}">
-                    <td><strong>${escapeHtml(item.momento)}</strong></td>
-                    <td class="text-xs font-semibold">${escapeHtml(item.tempo)}</td>
-                    <td>${escapeHtml(item.oQueFazer)}</td>
-                    <td class="text-xs text-muted">${escapeHtml(item.regraSimples)}</td>
-                    <td class="text-center">
-                      <button type="button" class="btn btn-xs ${item.controle === 'Feito' ? 'btn-success' : 'btn-outline-secondary'}"
-                        onclick="toggleDiarioDia('${escapeHtml(item.momento)}')">
-                        ${item.controle === 'Feito' ? '✓ Feito' : '⏳ Pendente'}
-                      </button>
-                    </td>
-                    <td>
-                      <input type="text" class="table-inline-input" placeholder="Ex: Bloco 02, art. 149..."
-                        value="${escapeHtml(item.registro)}"
-                        onchange="updateDiarioRegistro('${escapeHtml(item.momento)}', this.value)" />
-                    </td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- 2. DIVISÃO DE DIÁRIOS DE ESTUDOS: BÚSSOLA NOTE = 30 MIN OAB CICLO -->
-      <div class="card">
-        <div class="card-header flex-between">
-          <div>
-            <h4 class="card-title">2. Divisão de Diários de Estudos</h4>
-            <span class="text-xs text-muted">Bússola Note = 30 min OAB Ciclo</span>
-          </div>
-          <button type="button" class="btn btn-ghost btn-sm" onclick="reiniciarDivisaoDiaria()">
-            ⟲ Novo Dia
-          </button>
-        </div>
-        <div class="card-body">
-          <div class="alert-box alert-neutral text-xs mb-3">
-            🧭 <strong>Bússola Note</strong> = 🎯 <strong>30 min OAB Ciclo</strong> (30 questões/dia divididas em 2 a 3 matérias)
-          </div>
-
-          <div class="reverso-steps-list">
-            <div class="reverso-step-card ${div.bussolaNote.controle === 'Feito' ? 'step-done' : ''}">
-              <div class="step-header">
-                <div class="step-badge">🧭</div>
-                <div class="step-info flex-1">
-                  <strong class="step-title">Bússola Note</strong>
-                  <div class="step-desc text-xs text-muted">Anotações principais, revisões, lei seca e pontos de atenção do dia</div>
-                </div>
-                <div class="step-actions">
-                  <button type="button" class="btn btn-xs ${div.bussolaNote.controle === 'Feito' ? 'btn-success' : 'btn-outline-secondary'}"
-                    onclick="toggleDivisaoDiaria('bussolaNote')">
-                    ${div.bussolaNote.controle === 'Feito' ? '✓ Feito' : '⏳ Pendente'}
-                  </button>
-                </div>
+    <div class="card">
+      <div class="card-body">
+        <div class="reverso-steps-list">
+          <div class="reverso-step-card ${div.bussolaNote.controle === 'Feito' ? 'step-done' : ''}">
+            <div class="step-header">
+              <div class="step-badge">🧭</div>
+              <div class="step-info flex-1">
+                <strong class="step-title">Bússola Note</strong>
               </div>
-              <div class="step-notes mt-2">
-                <input type="text" class="table-inline-input" placeholder="Registre o assunto/tópico anotado no Bússola Note hoje..."
-                  value="${escapeHtml(div.bussolaNote.registro)}"
-                  onchange="updateDivisaoDiariaRegistro('bussolaNote', this.value)" />
+              <div class="step-actions">
+                <button type="button" class="btn btn-xs ${div.bussolaNote.controle === 'Feito' ? 'btn-success' : 'btn-outline-secondary'}"
+                  onclick="toggleDivisaoDiaria('bussolaNote')">
+                  ${div.bussolaNote.controle === 'Feito' ? '✓ Feito' : '⏳ Pendente'}
+                </button>
               </div>
             </div>
+            <div class="step-notes mt-2">
+              <input type="text" class="table-inline-input" placeholder="Registro do Bússola Note..."
+                value="${escapeHtml(div.bussolaNote.registro)}"
+                onchange="updateDivisaoDiariaRegistro('bussolaNote', this.value)" />
+            </div>
+          </div>
 
-            <div class="reverso-step-card ${div.oabCiclo.controle === 'Feito' ? 'step-done' : ''}">
-              <div class="step-header">
-                <div class="step-badge">🎯</div>
-                <div class="step-info flex-1">
-                  <strong class="step-title">30 min OAB Ciclo (30 questões/dia)</strong>
-                  <div class="step-desc text-xs text-muted">2 a 3 matérias por dia no TEC Concursos · Meta ≥ 50%</div>
-                </div>
-                <div class="step-actions" style="display:flex; gap:6px; align-items:center;">
-                  <button type="button" class="btn btn-ghost btn-xs" onclick="switchTab('ciclo')" title="Abrir Ciclo OAB">
-                    Ciclo OAB ➔
-                  </button>
-                  <button type="button" class="btn btn-xs ${div.oabCiclo.controle === 'Feito' ? 'btn-success' : 'btn-outline-secondary'}"
-                    onclick="toggleDivisaoDiaria('oabCiclo')">
-                    ${div.oabCiclo.controle === 'Feito' ? '✓ Feito' : '⏳ Pendente'}
-                  </button>
-                </div>
+          <div class="reverso-step-card ${div.oabCiclo.controle === 'Feito' ? 'step-done' : ''}">
+            <div class="step-header">
+              <div class="step-badge">🎯</div>
+              <div class="step-info flex-1">
+                <strong class="step-title">30 min OAB Ciclo</strong>
               </div>
-              <div class="step-notes mt-2">
-                <input type="text" class="table-inline-input" placeholder="Ex: Dia 01 concluído — 24/30 acertos (80%)..."
-                  value="${escapeHtml(div.oabCiclo.registro)}"
-                  onchange="updateDivisaoDiariaRegistro('oabCiclo', this.value)" />
+              <div class="step-actions" style="display:flex; gap:6px; align-items:center;">
+                <button type="button" class="btn btn-ghost btn-xs" onclick="switchTab('ciclo')">
+                  Ciclo OAB ➔
+                </button>
+                <button type="button" class="btn btn-xs ${div.oabCiclo.controle === 'Feito' ? 'btn-success' : 'btn-outline-secondary'}"
+                  onclick="toggleDivisaoDiaria('oabCiclo')">
+                  ${div.oabCiclo.controle === 'Feito' ? '✓ Feito' : '⏳ Pendente'}
+                </button>
               </div>
+            </div>
+            <div class="step-notes mt-2">
+              <input type="text" class="table-inline-input" placeholder="Registro do Ciclo OAB (30 questões)..."
+                value="${escapeHtml(div.oabCiclo.registro)}"
+                onchange="updateDivisaoDiariaRegistro('oabCiclo', this.value)" />
             </div>
           </div>
         </div>
       </div>
     </div>
   `;
-}
-
-function toggleDiarioDia(dia) {
-  if (!state.diarioUser) state.diarioUser = {};
-  if (!state.diarioUser.controleSemanal) state.diarioUser.controleSemanal = {};
-  const curr = (state.diarioUser.controleSemanal[dia] && state.diarioUser.controleSemanal[dia].controle) || 'Pendente';
-  const next = curr === 'Feito' ? 'Pendente' : 'Feito';
-  state.diarioUser.controleSemanal[dia] = {
-    ...(state.diarioUser.controleSemanal[dia] || {}),
-    controle: next
-  };
-  saveState();
-  recalculateAll();
-  renderDiario();
-  updateNavBadges();
-}
-
-function updateDiarioRegistro(dia, text) {
-  if (!state.diarioUser) state.diarioUser = {};
-  if (!state.diarioUser.controleSemanal) state.diarioUser.controleSemanal = {};
-  state.diarioUser.controleSemanal[dia] = {
-    ...(state.diarioUser.controleSemanal[dia] || {}),
-    registro: text
-  };
-  saveState();
-}
-
-function reiniciarSemanaDiario() {
-  if (!confirm('Deseja reiniciar os controles da semana para Pendente?')) return;
-  if (!state.diarioUser) state.diarioUser = {};
-  if (!state.diarioUser.controleSemanal) state.diarioUser.controleSemanal = {};
-  const keys = (computed.diario && computed.diario.controleSemanal ? computed.diario.controleSemanal : []).map(x => x.momento || x.dia);
-  keys.forEach(d => {
-    state.diarioUser.controleSemanal[d] = {
-      ...(state.diarioUser.controleSemanal[d] || {}),
-      controle: 'Pendente'
-    };
-  });
-  saveState();
-  recalculateAll();
-  renderDiario();
-  updateNavBadges();
-  showToast('Controles semanais reiniciados para Pendente.', 'info');
 }
 
 function toggleDivisaoDiaria(key) {
