@@ -18,16 +18,19 @@ let state = {
   oabUser: {},
   // Registros de leitura de PDF (1..30): { [id]: { data, materiaPdf, topicoId, pagInicial, pagFinal, observacoes } }
   pdfUser: {},
-  // Diário de Estudos e Checklist Semanal/Tópico
+  // Diário de Estudos e Divisão Diária
   diarioUser: {
     controleSemanal: {},
-    topicoAtual: { topicoId: 'TOP-080', etapas: {} }
+    divisaoDiaria: {
+      bussolaNote: { controle: 'Pendente', registro: '' },
+      oabCiclo: { controle: 'Pendente', registro: '' }
+    }
   },
   authPasswordHash: '18d0ad0531b8cd6dc040dc00655927a38df980fd4428f32aae3aa90c02f52905',
   // Preferências e filtros de UI
   ui: {
-    activeTab: 'painel',
-    cicloSubtab: 'fila', // 'fila' | 'materias' | 'oab' | 'pdf' | 'reserva'
+    activeTab: 'diario',
+    cicloSubtab: 'oab',
     listaSearch: '',
     listaMateria: 'TODAS',
     listaFase: 'TODAS',
@@ -128,13 +131,9 @@ function initStateFromDefault() {
       'Dia útil — Bloco C (fechamento)': { controle: 'Pendente', registro: '' },
       'Sábado ou Domingo (quando conseguir)': { controle: 'Pendente', registro: '' }
     },
-    topicoAtual: {
-      topicoId: 'TOP-080',
-      etapas: {
-        1: { controle: 'Pendente', registro: '' },
-        2: { controle: 'Pendente', registro: '' },
-        3: { controle: 'Pendente', registro: '' }
-      }
+    divisaoDiaria: {
+      bussolaNote: { controle: 'Pendente', registro: '' },
+      oabCiclo: { controle: 'Pendente', registro: '' }
     }
   };
 }
@@ -165,9 +164,15 @@ function loadState() {
       if (saved.diarioUser) {
         state.diarioUser = {
           controleSemanal: { ...(state.diarioUser.controleSemanal || {}), ...(saved.diarioUser.controleSemanal || {}) },
-          topicoAtual: {
-            topicoId: (saved.diarioUser.topicoAtual && saved.diarioUser.topicoAtual.topicoId) || 'TOP-080',
-            etapas: { ...((state.diarioUser.topicoAtual && state.diarioUser.topicoAtual.etapas) || {}), ...((saved.diarioUser.topicoAtual && saved.diarioUser.topicoAtual.etapas) || {}) }
+          divisaoDiaria: {
+            bussolaNote: {
+              ...(state.diarioUser.divisaoDiaria.bussolaNote || {}),
+              ...((saved.diarioUser.divisaoDiaria && saved.diarioUser.divisaoDiaria.bussolaNote) || {})
+            },
+            oabCiclo: {
+              ...(state.diarioUser.divisaoDiaria.oabCiclo || {}),
+              ...((saved.diarioUser.divisaoDiaria && saved.diarioUser.divisaoDiaria.oabCiclo) || {})
+            }
           }
         };
       }
@@ -823,33 +828,22 @@ function recalculateAll() {
   const diasFeitos = semanal.filter(d => d.controle === 'Feito').length;
   const progressoSemanal = semanal.length ? diasFeitos / semanal.length : 0;
 
-  const currentTopicId = (state.diarioUser && state.diarioUser.topicoAtual && state.diarioUser.topicoAtual.topicoId) || 'TOP-080';
-  const topicMeta = computed.topicosMap[currentTopicId] || null;
-
-  const defaultEtapas = (diarioRaw.checklistTopico && diarioRaw.checklistTopico.etapas) ? diarioRaw.checklistTopico.etapas : [
-    { ordem: 1, etapa: 'Resumo NotebookLM do topico', orientacao: '' },
-    { ordem: 2, etapa: 'Questoes TEC', orientacao: '' },
-    { ordem: 3, etapa: 'Aprofundamento, se necessario', orientacao: 'Use Nao necessario quando dispensado.' }
-  ];
-  const topicEtapas = defaultEtapas.map(e => {
-    const u = (state.diarioUser && state.diarioUser.topicoAtual && state.diarioUser.topicoAtual.etapas && state.diarioUser.topicoAtual.etapas[e.ordem]) || {};
-    return {
-      ...e,
-      controle: u.controle || e.controle || 'Pendente',
-      registro: u.registro !== undefined ? u.registro : (e.registro || '')
-    };
-  });
-
+  const divRaw = (state.diarioUser && state.diarioUser.divisaoDiaria) || {};
   computed.diario = {
     controleSemanal: semanal,
     diasConcluidos: diasFeitos,
     progressoSemanal: progressoSemanal,
-    topicoAtual: {
-      topicoId: currentTopicId,
-      topico: topicMeta,
-      etapas: topicEtapas
+    divisaoDiaria: {
+      bussolaNote: {
+        controle: (divRaw.bussolaNote && divRaw.bussolaNote.controle) || 'Pendente',
+        registro: (divRaw.bussolaNote && divRaw.bussolaNote.registro) || ''
+      },
+      oabCiclo: {
+        controle: (divRaw.oabCiclo && divRaw.oabCiclo.controle) || 'Pendente',
+        registro: (divRaw.oabCiclo && divRaw.oabCiclo.registro) || ''
+      }
     },
-    observacaoGeral: diarioRaw.observacaoGeral || 'Sempre que possivel, faca questoes ou revise por cards no NotebookLM.'
+    observacaoGeral: diarioRaw.observacaoGeral || 'Divisão diária: Bússola Note = 30 min OAB Ciclo (30 questões/dia).'
   };
 
   // 6. Acompanhamento por Etapa (Ciclo Ativo 10 matérias vs Catálogo Complementar 17 matérias)
@@ -1037,7 +1031,6 @@ function recalculateAll() {
 }
 
 function updateNavBadges() {
-  const activeBlock = computed.cicloFila.find(b => b.statusRetomada === '▶ Retomar daqui');
   const elDiario = document.getElementById('navBadgeDiario');
   if (elDiario && computed.diario) {
     const totalSemanal = computed.diario.controleSemanal.length || 4;
@@ -1046,7 +1039,9 @@ function updateNavBadges() {
 
   const elCiclo = document.getElementById('navBadgeCiclo');
   if (elCiclo) {
-    elCiclo.textContent = activeBlock ? activeBlock.bloco : '23/23 ✓';
+    const oabTotal = computed.cicloOab.length || 10;
+    const oabFeitosDias = computed.cicloOab.filter(o => Number(o.feitas) > 0).length;
+    elCiclo.textContent = `${oabFeitosDias}/${oabTotal}`;
   }
 
   const elLista = document.getElementById('navBadgeLista');
@@ -1061,7 +1056,8 @@ function updateNavBadges() {
 
   const elPomodoroLabel = document.getElementById('pomodoroBlockLabel');
   if (elPomodoroLabel) {
-    elPomodoroLabel.textContent = activeBlock ? `${activeBlock.bloco} • ${activeBlock.topicoId}` : 'Volta Concluída';
+    const nextOab = computed.cicloOab.find(o => !(Number(o.feitas) > 0));
+    elPomodoroLabel.textContent = nextOab ? `${nextOab.semana} • Ciclo OAB (30q)` : 'Volta OAB Concluída';
   }
 }
 
@@ -1499,13 +1495,16 @@ function renderDiario() {
 
   const d = computed.diario;
   if (!d) return;
-  const t = d.topicoAtual.topico;
+  const div = d.divisaoDiaria || {
+    bussolaNote: { controle: 'Pendente', registro: '' },
+    oabCiclo: { controle: 'Pendente', registro: '' }
+  };
 
   container.innerHTML = `
     <div class="section-header">
       <div>
-        <h3 class="section-title">Diário de Estudos • Checklist de Controle Semanal & Estudo Reverso</h3>
-        <p class="section-subtitle">Acompanhamento diário das atividades planejadas e checklist prático por tópico (NotebookLM → TEC → Aprofundamento).</p>
+        <h3 class="section-title">Diário de Estudos • Bússola Note = 30 min OAB Ciclo</h3>
+        <p class="section-subtitle">Controle semanal por blocos e divisão diária direta entre Bússola Note e 30 min de questões no Ciclo OAB.</p>
       </div>
       <div class="header-action-group">
         <button type="button" class="btn btn-ghost btn-sm" onclick="reiniciarSemanaDiario()">
@@ -1577,73 +1576,67 @@ function renderDiario() {
         </div>
       </div>
 
-      <!-- 2. CHECKLIST DO ESTUDO REVERSO | TÓPICO ATUAL -->
+      <!-- 2. DIVISÃO DE DIÁRIOS DE ESTUDOS: BÚSSOLA NOTE = 30 MIN OAB CICLO -->
       <div class="card">
         <div class="card-header flex-between">
           <div>
-            <h4 class="card-title">2. Checklist do Estudo Reverso | Tópico Atual</h4>
-            <span class="text-xs text-muted">Roteiro prático para cada unidade de estudo</span>
+            <h4 class="card-title">2. Divisão de Diários de Estudos</h4>
+            <span class="text-xs text-muted">Bússola Note = 30 min OAB Ciclo</span>
           </div>
-          <button type="button" class="btn btn-ghost btn-sm" onclick="reiniciarChecklistTopico()">
-            ⟲ Novo Tópico
+          <button type="button" class="btn btn-ghost btn-sm" onclick="reiniciarDivisaoDiaria()">
+            ⟲ Novo Dia
           </button>
         </div>
         <div class="card-body">
-          <!-- Seletor do Tópico Atual -->
-          <div class="topic-picker-box mb-3">
-            <label class="form-label" for="selectDiarioTopico"><strong>Tópico em Estudo:</strong></label>
-            <div class="flex-row gap-2">
-              <select id="selectDiarioTopico" class="filter-select flex-1" onchange="setDiarioTopicoId(this.value)">
-                ${computed.listaUnica.filter(x => x.id !== 'TOP-001').map(x => `
-                  <option value="${x.id}" ${x.id === d.topicoAtual.topicoId ? 'selected' : ''}>
-                    ${x.id} • ${escapeHtml(x.materia)} — ${escapeHtml(x.subtopico.substring(0, 70))}${x.subtopico.length > 70 ? '...' : ''}
-                  </option>
-                `).join('')}
-              </select>
-              ${t ? `
-                <button type="button" class="btn btn-secondary btn-sm" onclick="openTopicModal('${t.id}')" title="Ver detalhes completos na Lista Única">
-                  Detalhes ↗
-                </button>
-              ` : ''}
-            </div>
-            ${t ? `
-              <div class="topic-summary-pill mt-2">
-                <span class="status-pill status-em-curso">${escapeHtml(t.faseCiclo)}</span>
-                <span class="status-pill ${t.status === 'Consolidado' ? 'status-consolidado' : (t.status === 'Reforço' ? 'status-reforco' : 'status-pendente')}">${escapeHtml(t.status)} (${fmtPct(t.progresso, 0)})</span>
-                <span class="text-xs text-muted">${escapeHtml(t.dispositivos || '')}</span>
-              </div>
-            ` : ''}
+          <div class="alert-box alert-neutral text-xs mb-3">
+            🧭 <strong>Bússola Note</strong> = 🎯 <strong>30 min OAB Ciclo</strong> (30 questões/dia divididas em 2 a 3 matérias)
           </div>
 
-          <!-- 3 Etapas do Estudo Reverso -->
           <div class="reverso-steps-list">
-            ${d.topicoAtual.etapas.map(step => `
-              <div class="reverso-step-card ${step.controle === 'Feito' ? 'step-done' : (step.controle === 'Não necessário' ? 'step-dispensed' : '')}">
-                <div class="step-header">
-                  <div class="step-badge">${step.ordem}</div>
-                  <div class="step-info flex-1">
-                    <strong class="step-title">${escapeHtml(step.etapa)}</strong>
-                    ${step.orientacao ? `<div class="step-desc text-xs text-muted">${escapeHtml(step.orientacao)}</div>` : ''}
-                  </div>
-                  <div class="step-actions">
-                    <select class="status-select-sm" onchange="updateChecklistControle(${step.ordem}, this.value)">
-                      <option value="Pendente" ${step.controle === 'Pendente' ? 'selected' : ''}>⏳ Pendente</option>
-                      <option value="Feito" ${step.controle === 'Feito' ? 'selected' : ''}>✓ Feito</option>
-                      ${step.ordem === 3 ? `<option value="Não necessário" ${step.controle === 'Não necessário' ? 'selected' : ''}>— Não necessário</option>` : ''}
-                    </select>
-                  </div>
+            <div class="reverso-step-card ${div.bussolaNote.controle === 'Feito' ? 'step-done' : ''}">
+              <div class="step-header">
+                <div class="step-badge">🧭</div>
+                <div class="step-info flex-1">
+                  <strong class="step-title">Bússola Note</strong>
+                  <div class="step-desc text-xs text-muted">Anotações principais, revisões, lei seca e pontos de atenção do dia</div>
                 </div>
-                <div class="step-notes mt-2">
-                  <input type="text" class="table-inline-input" placeholder="Anotação / resultado / caderno de erros..."
-                    value="${escapeHtml(step.registro)}"
-                    onchange="updateChecklistRegistro(${step.ordem}, this.value)" />
+                <div class="step-actions">
+                  <button type="button" class="btn btn-xs ${div.bussolaNote.controle === 'Feito' ? 'btn-success' : 'btn-outline-secondary'}"
+                    onclick="toggleDivisaoDiaria('bussolaNote')">
+                    ${div.bussolaNote.controle === 'Feito' ? '✓ Feito' : '⏳ Pendente'}
+                  </button>
                 </div>
               </div>
-            `).join('')}
-          </div>
+              <div class="step-notes mt-2">
+                <input type="text" class="table-inline-input" placeholder="Registre o assunto/tópico anotado no Bússola Note hoje..."
+                  value="${escapeHtml(div.bussolaNote.registro)}"
+                  onchange="updateDivisaoDiariaRegistro('bussolaNote', this.value)" />
+              </div>
+            </div>
 
-          <div class="alert-box alert-neutral text-xs mt-3">
-            ℹ️ <strong>Orientação:</strong> Ao trocar de tópico, atualize o ID acima e reinicie o checklist. As 5 etapas oficiais de consolidação continuam sendo registradas e acompanhadas na <strong>Lista Única</strong>.
+            <div class="reverso-step-card ${div.oabCiclo.controle === 'Feito' ? 'step-done' : ''}">
+              <div class="step-header">
+                <div class="step-badge">🎯</div>
+                <div class="step-info flex-1">
+                  <strong class="step-title">30 min OAB Ciclo (30 questões/dia)</strong>
+                  <div class="step-desc text-xs text-muted">2 a 3 matérias por dia no TEC Concursos · Meta ≥ 50%</div>
+                </div>
+                <div class="step-actions" style="display:flex; gap:6px; align-items:center;">
+                  <button type="button" class="btn btn-ghost btn-xs" onclick="switchTab('ciclo')" title="Abrir Ciclo OAB">
+                    Ciclo OAB ➔
+                  </button>
+                  <button type="button" class="btn btn-xs ${div.oabCiclo.controle === 'Feito' ? 'btn-success' : 'btn-outline-secondary'}"
+                    onclick="toggleDivisaoDiaria('oabCiclo')">
+                    ${div.oabCiclo.controle === 'Feito' ? '✓ Feito' : '⏳ Pendente'}
+                  </button>
+                </div>
+              </div>
+              <div class="step-notes mt-2">
+                <input type="text" class="table-inline-input" placeholder="Ex: Dia 01 concluído — 24/30 acertos (80%)..."
+                  value="${escapeHtml(div.oabCiclo.registro)}"
+                  onchange="updateDivisaoDiariaRegistro('oabCiclo', this.value)" />
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -1694,360 +1687,135 @@ function reiniciarSemanaDiario() {
   showToast('Controles semanais reiniciados para Pendente.', 'info');
 }
 
-function setDiarioTopicoId(tid) {
+function toggleDivisaoDiaria(key) {
   if (!state.diarioUser) state.diarioUser = {};
-  if (!state.diarioUser.topicoAtual) state.diarioUser.topicoAtual = { etapas: {} };
-  state.diarioUser.topicoAtual.topicoId = tid;
-  saveState();
-  recalculateAll();
-  renderDiario();
-}
-
-function updateChecklistControle(ordem, val) {
-  if (!state.diarioUser) state.diarioUser = {};
-  if (!state.diarioUser.topicoAtual) state.diarioUser.topicoAtual = { etapas: {} };
-  if (!state.diarioUser.topicoAtual.etapas) state.diarioUser.topicoAtual.etapas = {};
-  state.diarioUser.topicoAtual.etapas[ordem] = {
-    ...(state.diarioUser.topicoAtual.etapas[ordem] || {}),
-    controle: val
+  if (!state.diarioUser.divisaoDiaria) state.diarioUser.divisaoDiaria = {};
+  const curr = (state.diarioUser.divisaoDiaria[key] && state.diarioUser.divisaoDiaria[key].controle) || 'Pendente';
+  const next = curr === 'Feito' ? 'Pendente' : 'Feito';
+  state.diarioUser.divisaoDiaria[key] = {
+    ...(state.diarioUser.divisaoDiaria[key] || {}),
+    controle: next
   };
   saveState();
   recalculateAll();
   renderDiario();
 }
 
-function updateChecklistRegistro(ordem, text) {
+function updateDivisaoDiariaRegistro(key, text) {
   if (!state.diarioUser) state.diarioUser = {};
-  if (!state.diarioUser.topicoAtual) state.diarioUser.topicoAtual = { etapas: {} };
-  if (!state.diarioUser.topicoAtual.etapas) state.diarioUser.topicoAtual.etapas = {};
-  state.diarioUser.topicoAtual.etapas[ordem] = {
-    ...(state.diarioUser.topicoAtual.etapas[ordem] || {}),
+  if (!state.diarioUser.divisaoDiaria) state.diarioUser.divisaoDiaria = {};
+  state.diarioUser.divisaoDiaria[key] = {
+    ...(state.diarioUser.divisaoDiaria[key] || {}),
     registro: text
   };
   saveState();
 }
 
-function reiniciarChecklistTopico() {
+function reiniciarDivisaoDiaria() {
   if (!state.diarioUser) state.diarioUser = {};
-  if (!state.diarioUser.topicoAtual) state.diarioUser.topicoAtual = { etapas: {} };
-  state.diarioUser.topicoAtual.etapas = {
-    1: { controle: 'Pendente', registro: '' },
-    2: { controle: 'Pendente', registro: '' },
-    3: { controle: 'Pendente', registro: '' }
+  state.diarioUser.divisaoDiaria = {
+    bussolaNote: { controle: 'Pendente', registro: '' },
+    oabCiclo: { controle: 'Pendente', registro: '' }
   };
   saveState();
   recalculateAll();
   renderDiario();
-  showToast('Checklist do tópico reiniciado para Pendente.', 'info');
+  showToast('Divisão diária reiniciada para um novo dia.', 'info');
 }
 
 function renderCiclo() {
   const container = document.getElementById('cicloContent');
   if (!container) return;
 
-  const sub = state.ui.cicloSubtab || 'fila';
-  const completedBlocks = computed.cicloFila.filter(b => b.concluido).length;
-  const pctVolta = completedBlocks / 23;
-
+  const totalDias = computed.cicloOab.length || 10;
+  const totalPrevistas = computed.cicloOab.reduce((a, o) => a + (Number(o.previstas) || 0), 0);
   const oabFeitasTotal = computed.cicloOab.reduce((a, o) => a + (Number(o.feitas) || 0), 0);
   const oabAcertosTotal = computed.cicloOab.reduce((a, o) => a + (Number(o.acertos) || 0), 0);
   const oabPctGlobal = oabFeitasTotal > 0 ? oabAcertosTotal / oabFeitasTotal : null;
+  const diasConcluidos = computed.cicloOab.filter(o => Number(o.feitas) > 0).length;
 
   container.innerHTML = `
     <div class="section-header">
       <div>
-        <h3 class="section-title">Ciclo Contínuo de Estudos • TJSP e DPDF + OAB aos Sábados + Meta 50 Páginas PDF/Dia</h3>
-        <p class="section-subtitle">Sequência contínua sem grade fixa de segunda a domingo: ao interromper, retome exatamente de onde parou ("▶ Retomar daqui"); ao concluir os 23 blocos (19h10min), reinicie a volta.</p>
-      </div>
-      <div class="subtab-bar">
-        <button class="subtab-btn ${sub === 'fila' ? 'active' : ''}" onclick="setCicloSubtab('fila')">Fila Contínua (23 Blocos)</button>
-        <button class="subtab-btn ${sub === 'materias' ? 'active' : ''}" onclick="setCicloSubtab('materias')">Matérias do Ciclo (17)</button>
-        <button class="subtab-btn ${sub === 'oab' ? 'active' : ''}" onclick="setCicloSubtab('oab')">OAB aos Sábados (12)</button>
-        <button class="subtab-btn ${sub === 'pdf' ? 'active' : ''}" onclick="setCicloSubtab('pdf')">Meta Diária PDF (50 págs)</button>
-        <button class="subtab-btn ${sub === 'reserva' ? 'active' : ''}" onclick="setCicloSubtab('reserva')">Reserva SEFAZ-DF (10)</button>
+        <h3 class="section-title">Ciclo Contínuo de Questões OAB • 30 Questões Diárias (2 a 3 Matérias/Dia)</h3>
+        <p class="section-subtitle">Ciclo rotativo eficiente de ${totalDias} dias no TEC Concursos (30 min/dia · 30 questões/dia). Ao terminar o Dia ${totalDias}, reinicie a volta mantendo o ritmo contínuo.</p>
       </div>
     </div>
 
-    ${sub === 'fila' ? `
-      <div class="toolbar-card">
-        <div class="toolbar-left">
-          <span class="toolbar-stat"><strong>Progresso da Volta Atual:</strong> ${completedBlocks} / 23 blocos (${fmtPct(pctVolta, 1)}) · 1.150 min (19h10min) por volta</span>
-        </div>
-        <div class="toolbar-right">
-          <button class="btn btn-secondary btn-sm" onclick="reiniciarVoltaFila()">↺ Limpar Marcações e Iniciar Nova Volta (0/23)</button>
-        </div>
+    <div class="toolbar-card">
+      <div class="toolbar-left">
+        <span class="toolbar-stat">
+          <strong>Volta Atual:</strong> ${diasConcluidos} / ${totalDias} dias ·
+          Previstas: <strong>${totalPrevistas}q</strong> ·
+          Realizadas: <strong>${oabFeitasTotal}q</strong> ·
+          Acertos: <strong>${oabAcertosTotal}</strong> (${oabPctGlobal !== null ? fmtPct(oabPctGlobal, 1) : 'Aguardando registros'})
+        </span>
       </div>
+      <div class="toolbar-right">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="reiniciarVoltaOab()">↺ Limpar e Iniciar Nova Volta</button>
+      </div>
+    </div>
 
-      <div class="table-card">
-        <div class="table-responsive">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th style="width:95px;">Passagem</th>
-                <th style="width:65px;" class="text-center">Concluído</th>
-                <th style="width:145px;">Status de Retomada</th>
-                <th>Matéria da Fila Contínua</th>
-                <th>Foco Principal do Bloco (50 min)</th>
-                <th class="text-center">Concurso-Alvo</th>
-                <th style="width:115px;">Subtópico Estudado</th>
-                <th style="width:130px;">Etapa Executada</th>
-                <th>Observação Rápida da Sessão</th>
+    <div class="table-card">
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width:95px;">Dia</th>
+              <th style="width:130px;">Data Realizada</th>
+              <th>Divisão Diária — 2 a 3 Matérias (30 questões/dia)</th>
+              <th>Sinergia com Concursos</th>
+              <th class="text-center" style="width:80px;">Previstas</th>
+              <th class="text-center" style="width:90px;">Feitas</th>
+              <th class="text-center" style="width:90px;">Acertos</th>
+              <th class="text-center" style="width:95px;">% Acerto</th>
+              <th class="text-center" style="width:145px;">Status (Meta ≥50%)</th>
+              <th style="min-width:200px;">Diagnóstico / Ponto a Reforçar</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${computed.cicloOab.map(o => `
+              <tr class="${Number(o.feitas) > 0 ? 'row-done' : ''}">
+                <td><strong>${escapeHtml(o.semana)}</strong></td>
+                <td>
+                  <input type="date" class="input-inline" value="${escapeHtml(o.data)}"
+                    onchange="updateOabField('${o.semana}', 'data', this.value)" />
+                </td>
+                <td><strong>${escapeHtml(o.cadernos)}</strong></td>
+                <td class="text-xs text-muted">${escapeHtml(o.sinergia)}</td>
+                <td class="text-center">${o.previstas}</td>
+                <td class="text-center">
+                  <input type="number" min="0" max="200" class="input-inline text-center" value="${escapeHtml(o.feitas)}"
+                    placeholder="0" onchange="updateOabField('${o.semana}', 'feitas', this.value)" />
+                </td>
+                <td class="text-center">
+                  <input type="number" min="0" max="200" class="input-inline text-center" value="${escapeHtml(o.acertos)}"
+                    placeholder="0" onchange="updateOabField('${o.semana}', 'acertos', this.value)" />
+                </td>
+                <td class="text-center"><strong>${o.pctAcerto !== null ? fmtPct(o.pctAcerto, 1) : '—'}</strong></td>
+                <td class="text-center">${getStatusBadgeHtml(o.statusMeta)}</td>
+                <td>
+                  <input type="text" class="input-inline" value="${escapeHtml(o.diagnostico)}"
+                    placeholder="Anotar ponto fraco..." onchange="updateOabField('${o.semana}', 'diagnostico', this.value)" />
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              ${computed.cicloFila.map(b => {
-                const isCurrent = b.statusRetomada === '▶ Retomar daqui';
-                return `
-                  <tr class="${isCurrent ? 'row-highlight-resume' : (b.concluido ? 'row-completed-muted' : '')}">
-                    <td><strong>${escapeHtml(b.bloco)}</strong></td>
-                    <td class="text-center">
-                      <button class="stage-check-btn ${b.concluido ? 'stage-ok' : ''}" onclick="toggleBlocoFila('${b.bloco}')">
-                        ${b.concluido ? '✓' : '☐'}
-                      </button>
-                    </td>
-                    <td>
-                      <span class="status-pill ${isCurrent ? 'status-reforco' : (b.concluido ? 'status-consolidado' : 'status-pendente')}">
-                        ${escapeHtml(b.statusRetomada)}
-                      </span>
-                    </td>
-                    <td><strong>${escapeHtml(b.materia)}</strong></td>
-                    <td class="text-muted">${escapeHtml(b.foco)}</td>
-                    <td class="text-center"><span class="badge-target">${escapeHtml(b.concursoAlvo)}</span></td>
-                    <td>
-                      <div style="display:flex; gap:4px; align-items:center;">
-                        <input type="text" class="input-inline" style="width:78px;" value="${escapeHtml(b.topicoId)}"
-                          onchange="updateFilaField('${b.bloco}', 'topicoId', this.value)" />
-                        ${computed.topicosMap[b.topicoId] ? `<button class="btn-icon-tiny" title="Abrir tópico" onclick="openTopicModal('${b.topicoId}')">↗</button>` : ''}
-                      </div>
-                    </td>
-                    <td>
-                      <select class="select-inline" onchange="updateFilaField('${b.bloco}', 'etapa', this.value)">
-                        ${['Diagnóstico', 'Teoria', 'Validação', 'Revisão 1', 'Revisão 2'].map(et =>
-                          `<option value="${et}" ${b.etapa === et ? 'selected' : ''}>${et}</option>`
-                        ).join('')}
-                      </select>
-                    </td>
-                    <td>
-                      <input type="text" class="input-inline" value="${escapeHtml(b.observacao)}"
-                        onchange="updateFilaField('${b.bloco}', 'observacao', this.value)" />
-                    </td>
-                  </tr>
-                `;
-              }).join('')}
-            </tbody>
-          </table>
-        </div>
+            `).join('')}
+          </tbody>
+        </table>
       </div>
-    ` : ''}
-
-    ${sub === 'materias' ? `
-      <div class="table-card">
-        <div class="table-responsive">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th class="text-center" style="width:55px;">Ordem</th>
-                <th>Matéria do Ciclo Atual (TJSP e DPDF)</th>
-                <th class="text-center">Passagens</th>
-                <th class="text-center">Min / Volta</th>
-                <th>Incidência TJSP / DPDF</th>
-                <th>Recorte e Prioridade de Estudo</th>
-                <th class="text-center">Tópicos</th>
-                <th class="text-center">Consolidados</th>
-                <th style="min-width:150px;">Progresso</th>
-                <th style="min-width:220px;">Onde Retomar (ID / Etapa / Página)</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${computed.cicloMaterias.map(m => `
-                <tr>
-                  <td class="text-center"><strong>${m.ordem}</strong></td>
-                  <td><strong>${escapeHtml(m.materia)}</strong></td>
-                  <td class="text-center">${m.passagens}×</td>
-                  <td class="text-center">${m.minutos} min</td>
-                  <td><span class="text-muted">${escapeHtml(m.incidencia)}</span></td>
-                  <td><span class="text-muted">${escapeHtml(m.recorte)}</span></td>
-                  <td class="text-center"><strong>${m.topicosCount}</strong></td>
-                  <td class="text-center">${m.consolidados}</td>
-                  <td>${getProgressBarHtml(m.progresso)}</td>
-                  <td>
-                    <input type="text" class="input-inline" value="${escapeHtml(m.ondeRetomar)}"
-                      onchange="updateMateriaCicloRetomar(${m.ordem}, this.value)" />
-                  </td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    ` : ''}
-
-    ${sub === 'oab' ? `
-      <div class="toolbar-card">
-        <div class="toolbar-left">
-          <span class="toolbar-stat"><strong>Ciclo Independente OAB aos Sábados (TEC Concursos):</strong> 12 Sábados × 60 questões = 720 previstas · Realizadas: <strong>${oabFeitasTotal}</strong> · Acertos: <strong>${oabAcertosTotal}</strong> (${oabPctGlobal !== null ? fmtPct(oabPctGlobal, 1) : 'Aguardando registros'})</span>
-        </div>
-      </div>
-      <div class="table-card">
-        <div class="table-responsive">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th style="width:105px;">Semana</th>
-                <th style="width:130px;">Data Realizada</th>
-                <th>Cadernos do Guia OAB no TEC Concursos (4 × 15q)</th>
-                <th>Foco de Sinergia c/ Concursos</th>
-                <th class="text-center" style="width:80px;">Previstas</th>
-                <th class="text-center" style="width:90px;">Feitas</th>
-                <th class="text-center" style="width:90px;">Acertos</th>
-                <th class="text-center" style="width:100px;">% Acerto</th>
-                <th class="text-center" style="width:150px;">Status da Meta (≥50%)</th>
-                <th style="min-width:200px;">Diagnóstico / Disciplina a Reforçar</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${computed.cicloOab.map(o => `
-                <tr>
-                  <td><strong>${escapeHtml(o.semana)}</strong></td>
-                  <td>
-                    <input type="date" class="input-inline" value="${escapeHtml(o.data)}"
-                      onchange="updateOabField('${o.semana}', 'data', this.value)" />
-                  </td>
-                  <td>${escapeHtml(o.cadernos)}</td>
-                  <td class="text-muted">${escapeHtml(o.sinergia)}</td>
-                  <td class="text-center">${o.previstas}</td>
-                  <td class="text-center">
-                    <input type="number" min="0" max="200" class="input-inline text-center" value="${escapeHtml(o.feitas)}"
-                      placeholder="0" onchange="updateOabField('${o.semana}', 'feitas', this.value)" />
-                  </td>
-                  <td class="text-center">
-                    <input type="number" min="0" max="200" class="input-inline text-center" value="${escapeHtml(o.acertos)}"
-                      placeholder="0" onchange="updateOabField('${o.semana}', 'acertos', this.value)" />
-                  </td>
-                  <td class="text-center"><strong>${o.pctAcerto !== null ? fmtPct(o.pctAcerto, 1) : '—'}</strong></td>
-                  <td class="text-center">${getStatusBadgeHtml(o.statusMeta)}</td>
-                  <td>
-                    <input type="text" class="input-inline" value="${escapeHtml(o.diagnostico)}"
-                      placeholder="Anotar ponto fraco..." onchange="updateOabField('${o.semana}', 'diagnostico', this.value)" />
-                  </td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    ` : ''}
-
-    ${sub === 'pdf' ? `
-      <div class="toolbar-card">
-        <div class="toolbar-left">
-          <span class="toolbar-stat">
-            <strong>META-01 (50 páginas PDF/dia):</strong>
-            Páginas Acumuladas: <strong>${computed.cicloPdf.acum}</strong> ·
-            Registros Preenchidos: <strong>${computed.cicloPdf.preenchidos} / 30</strong> ·
-            Média por Registro: <strong>${computed.cicloPdf.media !== null ? computed.cicloPdf.media.toFixed(1) + ' págs' : 'Pendente'}</strong> ·
-            Saldo Acumulado: <strong class="${computed.cicloPdf.saldo >= 0 ? 'text-success' : 'text-danger'}">${computed.cicloPdf.saldo >= 0 ? '+' : ''}${computed.cicloPdf.saldo} págs</strong>
-          </span>
-        </div>
-      </div>
-      <div class="table-card">
-        <div class="table-responsive">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th class="text-center" style="width:60px;">Reg.</th>
-                <th style="width:130px;">Data (opcional)</th>
-                <th>Matéria / PDF Utilizado</th>
-                <th style="width:120px;">ID do Subtópico</th>
-                <th class="text-center" style="width:95px;">Pág. Inicial</th>
-                <th class="text-center" style="width:95px;">Pág. Final</th>
-                <th class="text-center" style="width:95px;">Págs. Lidas</th>
-                <th class="text-center" style="width:80px;">Meta</th>
-                <th class="text-center" style="width:95px;">Saldo</th>
-                <th>Observações / Ponto de Parada</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${computed.cicloPdf.logs.map(p => `
-                <tr>
-                  <td class="text-center"><strong>#${p.id}</strong></td>
-                  <td>
-                    <input type="date" class="input-inline" value="${escapeHtml(p.data)}"
-                      onchange="updatePdfField(${p.id}, 'data', this.value)" />
-                  </td>
-                  <td>
-                    <input type="text" class="input-inline" value="${escapeHtml(p.materiaPdf)}"
-                      placeholder="Ex: Direito Civil - Aula 02" onchange="updatePdfField(${p.id}, 'materiaPdf', this.value)" />
-                  </td>
-                  <td>
-                    <input type="text" class="input-inline" value="${escapeHtml(p.topicoId)}"
-                      placeholder="TOP-056" onchange="updatePdfField(${p.id}, 'topicoId', this.value)" />
-                  </td>
-                  <td class="text-center">
-                    <input type="number" min="1" class="input-inline text-center" value="${escapeHtml(p.pagInicial)}"
-                      placeholder="1" onchange="updatePdfField(${p.id}, 'pagInicial', this.value)" />
-                  </td>
-                  <td class="text-center">
-                    <input type="number" min="1" class="input-inline text-center" value="${escapeHtml(p.pagFinal)}"
-                      placeholder="50" onchange="updatePdfField(${p.id}, 'pagFinal', this.value)" />
-                  </td>
-                  <td class="text-center"><strong>${p.pagLidas !== null ? p.pagLidas : '—'}</strong></td>
-                  <td class="text-center">${p.meta !== null ? p.meta : '50'}</td>
-                  <td class="text-center">
-                    ${p.saldo !== null ? `<strong class="${p.saldo >= 0 ? 'text-success' : 'text-danger'}">${p.saldo >= 0 ? '+' : ''}${p.saldo}</strong>` : '—'}
-                  </td>
-                  <td>
-                    <input type="text" class="input-inline" value="${escapeHtml(p.observacoes)}"
-                      placeholder="Parou no tópico X, pág Y..." onchange="updatePdfField(${p.id}, 'observacoes', this.value)" />
-                  </td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    ` : ''}
-
-    ${sub === 'reserva' ? `
-      <div class="toolbar-card">
-        <div class="toolbar-left">
-          <span class="toolbar-stat"><strong>Reserva para a Etapa SEFAZ-DF:</strong> 10 matérias exclusivas fora do ciclo atual (ativar após a fase TJSP/DPDF).</span>
-        </div>
-      </div>
-      <div class="table-card">
-        <div class="table-responsive">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th class="text-center" style="width:60px;">Ordem</th>
-                <th>Matéria Reservada para SEFAZ-DF</th>
-                <th>Fase de Entrada</th>
-                <th class="text-center">Tópicos</th>
-                <th class="text-center">Consolidados</th>
-                <th style="min-width:140px;">Progresso</th>
-                <th>Peso na Base SEFAZ-DF</th>
-                <th>Estratégia para a Etapa Fiscal</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${computed.cicloReserva.map(r => `
-                <tr>
-                  <td class="text-center"><strong>${r.ordem}</strong></td>
-                  <td><strong>${escapeHtml(r.materia)}</strong></td>
-                  <td><span class="status-pill status-pendente">${escapeHtml(r.faseEntrada)}</span></td>
-                  <td class="text-center"><strong>${r.topicosCount}</strong></td>
-                  <td class="text-center">${r.consolidados}</td>
-                  <td>${getProgressBarHtml(r.progresso)}</td>
-                  <td>${escapeHtml(r.peso)}</td>
-                  <td class="text-muted">${escapeHtml(r.estrategia)}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    ` : ''}
+    </div>
   `;
+}
+
+function reiniciarVoltaOab() {
+  if (!confirm('Deseja limpar os registros desta volta do Ciclo OAB e iniciar uma nova?')) return;
+  INITIAL_DATA.ciclo.oab.forEach(o => {
+    state.oabUser[o.semana] = { data: '', feitas: '', acertos: '', diagnostico: '' };
+  });
+  saveState();
+  recalculateAll();
+  renderCiclo();
+  showToast('Nova volta do Ciclo OAB iniciada!', 'info');
 }
 
 function setCicloSubtab(sub) {
@@ -3215,6 +2983,7 @@ function closeTopicModal() {
 
 function switchTab(tabId) {
   hideTopicPopover();
+  if (!tabId || tabId === 'painel') tabId = 'diario';
   state.ui.activeTab = tabId;
   saveState();
 
@@ -3324,9 +3093,8 @@ function setupHorizontalScrolling() {
 }
 
 function renderActiveTab() {
-  const tab = state.ui.activeTab || 'painel';
-  if (tab === 'painel') renderPainel();
-  else if (tab === 'diario') renderDiario();
+  const tab = (state.ui.activeTab && state.ui.activeTab !== 'painel') ? state.ui.activeTab : 'diario';
+  if (tab === 'diario') renderDiario();
   else if (tab === 'ciclo') renderCiclo();
   else if (tab === 'lista') renderLista();
   else if (tab === 'editais') renderEditais();
