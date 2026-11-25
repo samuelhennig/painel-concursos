@@ -843,7 +843,7 @@ function recalculateAll() {
         registro: (divRaw.oabCiclo && divRaw.oabCiclo.registro) || ''
       }
     },
-    observacaoGeral: diarioRaw.observacaoGeral || 'Divisão diária: Bússola Note = 30 min OAB Ciclo (45 questões/dia).'
+    observacaoGeral: diarioRaw.observacaoGeral || 'Divisão diária: Bússola Note = 30 min OAB Ciclo (30 questões/dia).'
   };
 
   // 6. Acompanhamento por Etapa (Ciclo Ativo 10 matérias vs Catálogo Complementar 17 matérias)
@@ -1058,7 +1058,7 @@ function updateNavBadges() {
   const elPomodoroLabel = document.getElementById('pomodoroBlockLabel');
   if (elPomodoroLabel) {
     const nextOab = computed.cicloOab.find(o => !(Number(o.feitas) > 0));
-    elPomodoroLabel.textContent = nextOab ? `${nextOab.semana} • Ciclo OAB (45q)` : 'Volta OAB Concluída';
+    elPomodoroLabel.textContent = nextOab ? `${nextOab.semana} • Ciclo OAB (30q)` : 'Volta OAB Concluída';
   }
 }
 
@@ -1553,7 +1553,7 @@ function renderDiario() {
               </div>
             </div>
             <div class="step-notes mt-2">
-              <input type="text" class="table-inline-input" placeholder="Registro do Ciclo OAB (45 questões)..."
+              <input type="text" class="table-inline-input" placeholder="Registro do Ciclo OAB (30 questões)..."
                 value="${escapeHtml(div.oabCiclo.registro)}"
                 onchange="updateDivisaoDiariaRegistro('oabCiclo', this.value)" />
             </div>
@@ -1614,8 +1614,8 @@ function renderCiclo() {
   container.innerHTML = `
     <div class="section-header">
       <div>
-        <h3 class="section-title">Ciclo Contínuo de Questões OAB • 45 Questões Diárias (2 a 3 Matérias/Dia)</h3>
-        <p class="section-subtitle">Ciclo rotativo eficiente de ${totalDias} dias no TEC Concursos (45 questões/dia).</p>
+        <h3 class="section-title">Ciclo Contínuo de Questões OAB • 30 Questões Diárias (2 a 3 Matérias/Dia)</h3>
+        <p class="section-subtitle">Ciclo rotativo eficiente de ${totalDias} dias no TEC Concursos (30 min/dia · 30 questões/dia). Ao terminar o Dia ${totalDias}, reinicie a volta mantendo o ritmo contínuo.</p>
       </div>
     </div>
 
@@ -1640,7 +1640,7 @@ function renderCiclo() {
             <tr>
               <th style="width:95px;">Dia</th>
               <th style="width:130px;">Data Realizada</th>
-              <th>Divisão Diária — 2 a 3 Matérias (45 questões/dia)</th>
+              <th>Divisão Diária — 2 a 3 Matérias (30 questões/dia)</th>
               <th>Sinergia com Concursos</th>
               <th class="text-center" style="width:80px;">Previstas</th>
               <th class="text-center" style="width:90px;">Feitas</th>
